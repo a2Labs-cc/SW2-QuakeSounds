@@ -2,7 +2,6 @@ using SwiftlyS2.Shared.GameEvents;
 using SwiftlyS2.Shared.GameEventDefinitions;
 using SwiftlyS2.Shared.Misc;
 using SwiftlyS2.Shared.Players;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 
@@ -10,46 +9,20 @@ namespace QuakeSounds;
 
 public partial class QuakeSounds
 {
-    [GameEventHandler(HookMode.Post)]
-    public HookResult OnPlayerDeath(EventPlayerDeath @event)
+    private bool ShouldSkipKillByConfig(IPlayer attacker, IPlayer victim)
     {
-        if (!_config.Enabled)
-        {
-            return HookResult.Continue;
-        }
-
-        if (!_config.PlayInWarmup && (Core.EntitySystem.GetGameRules()?.WarmupPeriod ?? false))
-        {
-            return HookResult.Continue;
-        }
-
-        var victimId = @event.Accessor.GetInt32("userid");
-        var attackerId = @event.Accessor.GetInt32("attacker");
-
-        var victim = victimId > 0 ? Core.PlayerManager.GetPlayer(victimId) : null;
-        if (victim is { IsValid: true } && _config.ResetKillsOnDeath)
-        {
-            _gameStateService.ResetKillCount(victim.PlayerID);
-        }
-
-        var attacker = attackerId > 0 ? Core.PlayerManager.GetPlayer(attackerId) : null;
-        if (attacker is not { IsValid: true } || attacker.IsFakeClient)
-        {
-            return HookResult.Continue;
-        }
-
         if (victim is { IsValid: true } && victim.PlayerID == attacker.PlayerID && !_config.CountSelfKills)
         {
-            return HookResult.Continue;
+            return true;
         }
 
         if (victim is { IsValid: true } && victim.PlayerID != attacker.PlayerID && !_config.CountTeamKills)
         {
             try
             {
-                if (victim.Controller.TeamNum == attacker.Controller.TeamNum)
+                if (victim.Controller?.TeamNum == attacker.Controller?.TeamNum)
                 {
-                    return HookResult.Continue;
+                    return true;
                 }
             }
             catch
@@ -58,12 +31,39 @@ public partial class QuakeSounds
             }
         }
 
-        var killCount = _gameStateService.IncrementKillCount(attacker.PlayerID);
-        if (_config.Debug)
+        return false;
+    }
+
+    [GameEventHandler(HookMode.Post)]
+    public HookResult OnPlayerDeath(EventPlayerDeath @event)
+    {
+        var victim = @event.Accessor.GetPlayer("userid");
+        var attacker = @event.Accessor.GetPlayer("attacker");
+
+        var victimSteamId = victim is { IsValid: true } ? victim.SteamID : 0;
+        var attackerSteamId = attacker is { IsValid: true } ? attacker.SteamID : 0;
+
+        if (attacker is not { IsValid: true } || attacker.IsFakeClient)
         {
-            Core.Logger.LogInformation($"[QuakeSounds] Kill: {killCount} | Attacker: {attacker.Controller?.PlayerName ?? "Unknown"} | Headshot: {@event.Headshot}");
+            return HookResult.Continue;
         }
 
+        if (attackerSteamId != 0 && !_gameStateService.ShouldProcessDeathEvent(attackerSteamId, victimSteamId, @event.Headshot, @event.Weapon, 250))
+        {
+            return HookResult.Continue;
+        }
+
+        if (victim is { IsValid: true } && _config.ResetKillsOnDeath)
+        {
+            _gameStateService.ResetKillCount(victim.PlayerID);
+        }
+
+        if (ShouldSkipKillByConfig(attacker, victim))
+        {
+            return HookResult.Continue;
+        }
+
+        var killCount = _gameStateService.IncrementKillCount(attacker.PlayerID);
         var (multiKillCount, isMultiKill) = _gameStateService.UpdateMultiKill(attacker.PlayerID, _config.MultiKillWindowSeconds);
 
         if (!_gameStateService.FirstBloodDone && victim is { IsValid: true } && victim.PlayerID != attacker.PlayerID)
@@ -77,57 +77,24 @@ public partial class QuakeSounds
 
         if (isMultiKill)
         {
-            if (_config.Debug)
-            {
-                Core.Logger.LogInformation($"[QuakeSounds] MultiKill detected: {multiKillCount}");
-            }
             if (TryPlayKillStreak(attacker, multiKillCount))
             {
-                if (_config.Debug)
-                {
-                    Core.Logger.LogInformation($"[QuakeSounds] MultiKill {multiKillCount} played");
-                }
                 return HookResult.Continue;
-            }
-            else
-            {
-                if (_config.Debug)
-                {
-                    Core.Logger.LogInformation($"[QuakeSounds] MultiKill {multiKillCount} NOT played (Missing key/sound)");
-                }
             }
         }
 
         if (TryPlayKillStreak(attacker, killCount))
         {
-            if (_config.Debug)
-            {
-                Core.Logger.LogInformation($"[QuakeSounds] KillStreak {killCount} played");
-            }
             return HookResult.Continue;
         }
         else
         {
-            if (_config.Debug)
-            {
-                bool hasKey = _config.KillStreakAnnounces.ContainsKey(killCount);
-                Core.Logger.LogInformation($"[QuakeSounds] KillStreak {killCount} SKIPPED. Config has key: {hasKey}");
-                if (hasKey)
-                {
-                    var soundKey = _config.KillStreakAnnounces[killCount];
-                    bool hasSound = _config.Sounds.ContainsKey(soundKey);
-                    Core.Logger.LogInformation($"[QuakeSounds] SoundKey: {soundKey} | In Sounds map: {hasSound}");
-                }
-            }
+            _ = _config.KillStreakAnnounces.ContainsKey(killCount);
         }
 
         if (@event.Headshot)
         {
             bool playedHeadshot = TryPlay(attacker, "headshot");
-            if (_config.Debug)
-            {
-                Core.Logger.LogInformation($"[QuakeSounds] Headshot played: {playedHeadshot}");
-            }
             if (playedHeadshot) return HookResult.Continue;
         }
 

@@ -9,6 +9,7 @@ public class GameStateService
     private readonly ConcurrentDictionary<int, (int Count, long LastKillTime)> _multiKillState = new();
     private readonly ConcurrentDictionary<ulong, float> _playerVolumeOverride = new();
     private readonly ConcurrentDictionary<ulong, bool> _playerEnabledOverride = new();
+    private readonly ConcurrentDictionary<string, long> _recentDeathEvents = new();
     
     public bool FirstBloodDone { get; set; } = false;
 
@@ -29,6 +30,7 @@ public class GameStateService
         _multiKillState.Clear();
         _playerVolumeOverride.Clear();
         _playerEnabledOverride.Clear();
+        _recentDeathEvents.Clear();
         FirstBloodDone = false;
     }
 
@@ -86,5 +88,28 @@ public class GameStateService
     public bool IsPlayerEnabled(ulong steamId)
     {
         return _playerEnabledOverride.TryGetValue(steamId, out var enabled) ? enabled : true;
+    }
+
+    public bool ShouldProcessDeathEvent(ulong attackerSteamId, ulong victimSteamId, bool headshot, string weapon, long dedupeWindowMs)
+    {
+        if (dedupeWindowMs <= 0) return true;
+
+        var weaponKey = weapon ?? string.Empty;
+        var key = $"{attackerSteamId}:{victimSteamId}:{(headshot ? 1 : 0)}:{weaponKey}";
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        if (_recentDeathEvents.TryAdd(key, now))
+        {
+            return true;
+        }
+
+        if (_recentDeathEvents.TryGetValue(key, out var last) && now - last <= dedupeWindowMs)
+        {
+            _recentDeathEvents[key] = now;
+            return false;
+        }
+
+        _recentDeathEvents[key] = now;
+        return true;
     }
 }

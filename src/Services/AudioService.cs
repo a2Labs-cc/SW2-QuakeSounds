@@ -15,7 +15,7 @@ public class AudioService
     private readonly ISwiftlyCore _core;
     private readonly IAudioApi? _audioApi;
     private readonly ConcurrentDictionary<string, IAudioSource> _decodedSources = new();
-    private readonly ConcurrentDictionary<int, IAudioChannelController> _playerChannels = new();
+    private int _channelCounter = 0;
 
     public AudioService(ISwiftlyCore core, IAudioApi? audioApi)
     {
@@ -26,12 +26,28 @@ public class AudioService
     public void ClearCache()
     {
         _decodedSources.Clear();
-        _playerChannels.Clear();
+        _channelCounter = 0;
+    }
+
+    public void RemovePlayerChannel(int playerId)
+    {
     }
 
     public bool TryPlay(IPlayer attacker, string soundKey, QuakeSounds.QuakeSoundsConfig config, Func<ulong, bool> isPlayerEnabled, Func<ulong, float> getPlayerVolume)
     {
-        if (_audioApi == null) return false;
+        float GetEffectiveVolume(ulong steamId)
+        {
+            var volume = config.Volume;
+            var overrideVolume = getPlayerVolume(steamId);
+            if (overrideVolume >= 0) volume = overrideVolume;
+            return Math.Clamp(volume, 0f, 1f);
+        }
+
+        if (_audioApi == null)
+        {
+            _core.Logger.LogWarning("[QuakeSounds] Audio API missing, cannot play sound.");
+            return false;
+        }
 
         if (!config.Sounds.TryGetValue(soundKey, out var configuredPath) || string.IsNullOrWhiteSpace(configuredPath))
         {
@@ -40,6 +56,7 @@ public class AudioService
         }
 
         var resolvedPath = ResolvePath(configuredPath);
+
         if (!File.Exists(resolvedPath))
         {
             _core.Logger.LogWarning("[QuakeSounds] Missing sound file for key '{Key}': {Path}", soundKey, resolvedPath);
@@ -57,7 +74,8 @@ public class AudioService
             return false;
         }
 
-        var channel = _playerChannels.GetOrAdd(attacker.PlayerID, id => _audioApi.UseChannel($"quakesounds.{id}"));
+        var channelId = $"quakesounds.{System.Threading.Interlocked.Increment(ref _channelCounter)}";
+        var channel = _audioApi.UseChannel(channelId);
         channel.SetSource(source);
 
         if (config.PlayToAll)
@@ -65,26 +83,26 @@ public class AudioService
             var anyPlayed = false;
             foreach (var player in _core.PlayerManager.GetAllPlayers().Where(p => p is { IsValid: true } && !p.IsFakeClient))
             {
-                if (!isPlayerEnabled(player.SteamID)) continue;
+                if (!isPlayerEnabled(player.SteamID))
+                {
+                    continue;
+                }
 
-                var volume = config.Volume;
-                var overrideVolume = getPlayerVolume(player.SteamID);
-                if (overrideVolume >= 0) volume = overrideVolume;
-
-                channel.SetVolume(player.PlayerID, Math.Clamp(volume, 0f, 1f));
+                var volume = GetEffectiveVolume(player.SteamID);
+                channel.SetVolume(player.PlayerID, volume);
                 channel.Play(player.PlayerID);
                 anyPlayed = true;
             }
             return anyPlayed;
         }
 
-        if (!isPlayerEnabled(attacker.SteamID)) return false;
+        if (!isPlayerEnabled(attacker.SteamID))
+        {
+            return false;
+        }
 
-        var attackerVolume = config.Volume;
-        var attackerOverride = getPlayerVolume(attacker.SteamID);
-        if (attackerOverride >= 0) attackerVolume = attackerOverride;
-
-        channel.SetVolume(attacker.PlayerID, Math.Clamp(attackerVolume, 0f, 1f));
+        var attackerVolume = GetEffectiveVolume(attacker.SteamID);
+        channel.SetVolume(attacker.PlayerID, attackerVolume);
         channel.Play(attacker.PlayerID);
         return true;
     }

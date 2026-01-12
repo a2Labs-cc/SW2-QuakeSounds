@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Shared.Players;
 using System;
@@ -35,7 +37,7 @@ public partial class QuakeSounds
             var currentMsg = Localize("commands.volume.current");
             var usageMsg = Localize("commands.volume.usage");
 
-            context.Reply(FormatWith(currentMsg, ("volume", displayVolume.ToString())) + "\n" + usageMsg + "\n");
+            context.Reply(FormatWith(currentMsg, ("volume", displayVolume.ToString())) + "\n" + usageMsg);
             return;
         }
 
@@ -51,12 +53,13 @@ public partial class QuakeSounds
         _gameStateService.SetPlayerVolume(sender.SteamID, vol);
 
         var setMsg = Localize("commands.volume.set");
-        context.Reply(FormatWith(setMsg, ("volume", volInt.ToString())) + "\n");
+        context.Reply(FormatWith(setMsg, ("volume", volInt.ToString())));
     }
 
     [Command("quake")]
     public void QuakeCommand(ICommandContext context)
     {
+        Core.Logger.LogInformation("[QuakeSounds] QuakeCommand called by {Player}", context.Sender?.Controller?.PlayerName ?? "Unknown");
         var sender = context.Sender!;
 
         var currentState = _gameStateService.IsPlayerEnabled(sender.SteamID);
@@ -65,6 +68,7 @@ public partial class QuakeSounds
 
         var enabledMsg = Localize("commands.quake.enabled");
         var disabledMsg = Localize("commands.quake.disabled");
-        context.Reply((newState ? enabledMsg : disabledMsg) + "\n");
+        Core.Logger.LogInformation("[QuakeSounds] QuakeCommand replying with: {State}", newState ? "enabled" : "disabled");
+        context.Reply(newState ? enabledMsg : disabledMsg);
     }
 }
