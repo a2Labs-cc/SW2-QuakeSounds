@@ -64,7 +64,6 @@ public partial class QuakeSounds
             Core.Logger.LogInformation($"[QuakeSounds] Kill: {killCount} | Attacker: {attacker.Controller?.PlayerName ?? "Unknown"} | Headshot: {@event.Headshot}");
         }
 
-        // Check for MultiKill
         var (multiKillCount, isMultiKill) = _gameStateService.UpdateMultiKill(attacker.PlayerID, _config.MultiKillWindowSeconds);
 
         if (!_gameStateService.FirstBloodDone && victim is { IsValid: true } && victim.PlayerID != attacker.PlayerID)
