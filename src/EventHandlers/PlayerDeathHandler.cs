@@ -75,6 +75,24 @@ public partial class QuakeSounds
             }
         }
 
+        if (@event.Weapon.Contains("taser", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "taser_kill"))
+        {
+            return HookResult.Continue;
+        }
+
+        if (@event.Weapon.Contains("knife", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryPlay(attacker, "knife_kill"))
+            {
+                return HookResult.Continue;
+            }
+
+            if (TryPlay(attacker, "humiliation"))
+            {
+                return HookResult.Continue;
+            }
+        }
+
         if (isMultiKill)
         {
             if (TryPlayKillStreak(attacker, multiKillCount))
@@ -96,11 +114,6 @@ public partial class QuakeSounds
         {
             bool playedHeadshot = TryPlay(attacker, "headshot");
             if (playedHeadshot) return HookResult.Continue;
-        }
-
-        if (@event.Weapon.Contains("knife", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "humiliation"))
-        {
-            return HookResult.Continue;
         }
 
         if (@event.Weapon.Contains("hegrenade", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "perfect"))
