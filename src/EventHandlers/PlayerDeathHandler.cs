@@ -37,6 +37,11 @@ public partial class QuakeSounds
     [GameEventHandler(HookMode.Post)]
     public HookResult OnPlayerDeath(EventPlayerDeath @event)
     {
+        if (!IsPluginEnabled())
+        {
+            return HookResult.Continue;
+        }
+
         var victim = @event.Accessor.GetPlayer("userid");
         var attacker = @event.Accessor.GetPlayer("attacker");
 
@@ -137,8 +142,13 @@ public partial class QuakeSounds
 
     private bool TryPlay(IPlayer attacker, string soundKey)
     {
+        if (!IsPluginEnabled())
+        {
+            return false;
+        }
+
         // Try to play sound
-        var played = _audioService?.TryPlay(
+        var played = _soundService?.TryPlay(
           attacker,
           soundKey,
           _config,

@@ -9,6 +9,11 @@ public partial class QuakeSounds
 {
   private void TryPlayRoundSoundToAll(string soundKey)
   {
+    if (!IsPluginEnabled())
+    {
+      return;
+    }
+
     var anyPlayer = Core.PlayerManager.GetAllPlayers()
       .FirstOrDefault(p => p is { IsValid: true } && !p.IsFakeClient);
 
@@ -27,7 +32,7 @@ public partial class QuakeSounds
       _config.Messages.EnableCenterMessage = false;
       _config.Messages.EnableChatMessage = false;
 
-      _audioService?.TryPlay(
+      _soundService?.TryPlay(
         anyPlayer,
         soundKey,
         _config,
