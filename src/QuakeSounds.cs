@@ -11,7 +11,7 @@ using System.Collections.Generic;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.0.1", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.0.2", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
   private AudioService? _audioService;
   private readonly GameStateService _gameStateService;
