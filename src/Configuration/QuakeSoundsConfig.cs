@@ -10,6 +10,8 @@ public partial class QuakeSounds
   {
     public bool Enabled { get; set; } = true;
     public bool Debug { get; set; } = false;
+    public bool UseAudioPlugin { get; set; } = true;
+    public string SoundEventFile { get; set; } = "your_sound_events/quakesounds.vsndevts";
     public bool PlayToAll { get; set; } = false;
     public float Volume { get; set; } = 1.0f;
     public bool CountSelfKills { get; set; } = false;

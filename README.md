@@ -23,7 +23,12 @@
 
 ## Overview
 
-**SwiftlyS2-QuakeSounds** is a SwiftlyS2 plugin that plays Quake-style announcer audio for kill streaks, multi-kills, first blood, and special weapon events. It uses the shared Audio interface to play the sounds.
+**SwiftlyS2-QuakeSounds** is a SwiftlyS2 plugin that plays Quake-style announcer audio for kill streaks, multi-kills, first blood, and special weapon events.
+
+It supports two playback modes:
+
+- **Audio plugin mode**: Uses the Swiftly Audio plugin (MP3/WAV playback).
+- **Workshop Addons**: Relies on addon sound events (.vsndevts).
 
 ## Support
 
@@ -43,6 +48,11 @@ Need help or have questions? Join our Discord server:
     <strong>&nbsp;Download Latest Plugin Version</strong> &rarr;
     <a href="https://github.com/a2Labs-cc/SW2-QuakeSounds/releases/latest" target="_blank" rel="noopener noreferrer">Click Here</a>
   </li>
+    <li>
+    <code>⚙️</code>
+    <strong>&nbsp;Download Latest Addons Manager</strong> &rarr;
+    <a href="https://github.com/SwiftlyS2-Plugins/AddonsManager/releases/latest" target="_blank" rel="noopener noreferrer">Click Here</a>
+  </li>
   <li>
     <code>⚙️</code>
     <strong>&nbsp;Download Latest SwiftlyS2 Version</strong> &rarr;
@@ -55,7 +65,7 @@ Need help or have questions? Join our Discord server:
 <ul>
   <li>
     <code>⚠️</code>
-    <strong>&nbsp;Requires Swiftly Audio Plugin in order to work</strong> &rarr;
+    <strong>&nbsp;Swiftly Audio Plugin is optional</strong> &rarr;
     <a href="https://github.com/SwiftlyS2-Plugins/Audio/releases/latest" target="_blank" rel="noopener noreferrer">Click Here</a>
   </li>
 </ul>
@@ -91,9 +101,13 @@ The plugin uses SwiftlyS2's JSON config system.
 
 On first run the config is created automatically. The resolved path is logged on startup.
 
+If you are using **Workshop Addons / sound events mode** (no Audio plugin), the default `Sounds` entries that reference `.mp3` files are only examples. You must replace them with the **actual sound event names** that exist in your `.vsndevts` and make sure `SoundEventFile` points to that `.vsndevts` so it gets precached.
+
 ### Key Configuration Options
 
 - `Enabled`: Master on/off switch (default: true)
+- `UseAudioPlugin`: Use the Swiftly Audio plugin if available; otherwise fall back to addon sounds mode (default: true)
+- `SoundEventFile`: (Addon sounds mode) `.vsndevts` file to precache (default: `your_sound_events/quakesounds.vsndevts`)
 - `PlayToAll`: Play sounds to all enabled players instead of only the killer (default: false)
 - `Volume`: Base volume (0-1) used when no per-player override exists (default: 1.0)
 - `CountSelfKills` / `CountTeamKills`: Whether to include suicides/team-kills in streaks (default: false / false)
@@ -108,6 +122,17 @@ On first run the config is created automatically. The resolved path is logged on
 
 - `!volume <0-10>`: Set your personal QuakeSounds volume (falls back to `Volume` when unset).
 - `!quake`: Toggle QuakeSounds on or off for yourself.
+
+### CVars
+
+- `qs_enabled <0|1>`: Enable/disable QuakeSounds globally at runtime.
+
+Examples:
+
+```text
+qs_enabled 0
+qs_enabled 1
+```
 
 ## Building
 

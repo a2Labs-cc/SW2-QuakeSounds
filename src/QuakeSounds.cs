@@ -1,9 +1,9 @@
-using AudioApi;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using QuakeSounds.Services;
 using SwiftlyS2.Shared;
+using SwiftlyS2.Shared.Convars;
 using SwiftlyS2.Shared.Misc;
 using SwiftlyS2.Shared.Plugins;
 using System;
@@ -11,12 +11,13 @@ using System.Collections.Generic;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.0.2", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.1.0", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
-  private AudioService? _audioService;
+  private ISoundService? _soundService;
   private readonly GameStateService _gameStateService;
   private readonly MessageService _messageService;
   private QuakeSoundsConfig _config = new();
+  private IConVar<int>? _qsEnabled;
   private IDisposable? _configReloadRegistration;
   private readonly List<string> _registeredCommands = new();
 
@@ -32,21 +33,54 @@ public partial class QuakeSounds : BasePlugin {
 
   public override void UseSharedInterface(IInterfaceManager interfaceManager)
   {
-    if (!interfaceManager.HasSharedInterface("audio"))
+    if (_config.UseAudioPlugin)
     {
-      Core.Logger.LogWarning("[QuakeSounds] Audio shared interface not found. Install/enable the 'Audio' plugin.");
-      _audioService = null;
-      return;
-    }
+      if (!interfaceManager.HasSharedInterface("audio"))
+      {
+        Core.Logger.LogWarning("[QuakeSounds] Audio plugin not found, falling back to addon sounds mode.");
+        _soundService = new AddonSoundService(Core);
+        return;
+      }
 
-    var audioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
-    _audioService = new AudioService(Core, audioApi);
+      try
+      {
+        var audioApiType = Type.GetType("AudioApi.IAudioApi, AudioApi");
+        if (audioApiType == null)
+        {
+          Core.Logger.LogWarning("[QuakeSounds] AudioApi assembly not found, falling back to addon sounds mode.");
+          _soundService = new AddonSoundService(Core);
+          return;
+        }
+
+        var getSharedInterfaceMethod = typeof(IInterfaceManager).GetMethod("GetSharedInterface");
+        var genericMethod = getSharedInterfaceMethod?.MakeGenericMethod(audioApiType);
+        var audioApi = genericMethod?.Invoke(interfaceManager, new object[] { "audio" });
+
+        if (audioApi == null)
+        {
+          Core.Logger.LogWarning("[QuakeSounds] Failed to get Audio API interface, falling back to addon sounds mode.");
+          _soundService = new AddonSoundService(Core);
+          return;
+        }
+
+        _soundService = AudioService.Create(Core, audioApi);
+        Core.Logger.LogInformation("[QuakeSounds] Using Audio API mode.");
+      }
+      catch (Exception ex)
+      {
+        Core.Logger.LogError(ex, "[QuakeSounds] Failed to initialize Audio API, falling back to addon sounds mode.");
+        _soundService = new AddonSoundService(Core);
+      }
+    }
+    else
+    {
+      _soundService = new AddonSoundService(Core);
+      Core.Logger.LogInformation("[QuakeSounds] Using addon sounds mode.");
+    }
   }
 
   public override void Load(bool hotReload)
   {
-    Core.Logger.LogInformation("[QuakeSounds] Load called - hotReload: {HotReload}, Instance: {InstanceHash}", hotReload, GetHashCode());
-    
     Core.Configuration
       .InitializeJsonWithModel<QuakeSoundsConfig>("config.jsonc", "Main")
       .Configure(builder =>
@@ -56,36 +90,50 @@ public partial class QuakeSounds : BasePlugin {
 
     ReloadConfig();
 
+    _qsEnabled = Core.ConVar.CreateOrFind<int>(
+      "qs_enabled",
+      "Enable/disable QuakeSounds globally. 1 = enabled, 0 = disabled.",
+      _config.Enabled ? 1 : 0,
+      0,
+      1
+    );
+
+    if (!_config.UseAudioPlugin && !string.IsNullOrEmpty(_config.SoundEventFile))
+    {
+      Core.Event.OnPrecacheResource += Event_OnPrecacheResource;
+    }
+
     _configReloadRegistration?.Dispose();
     _configReloadRegistration = ChangeToken.OnChange(
       () => Core.Configuration.Manager.GetReloadToken(),
       () =>
       {
         ReloadConfig();
-        _audioService?.ClearCache();
+        _soundService?.ClearCache();
       }
     );
 
     _registeredCommands.Add("volume");
     _registeredCommands.Add("quake");
-    Core.Logger.LogInformation("[QuakeSounds] Load completed - Commands registered: {Count}", _registeredCommands.Count);
+    Core.Logger.LogInformation("[QuakeSounds] Plugin loaded successfully.");
   }
 
   public override void Unload()
   {
-    Core.Logger.LogInformation("[QuakeSounds] Unload called - Instance: {InstanceHash}", GetHashCode());
-    
+    if (!_config.UseAudioPlugin && !string.IsNullOrEmpty(_config.SoundEventFile))
+    {
+      Core.Event.OnPrecacheResource -= Event_OnPrecacheResource;
+    }
+
     foreach (var commandName in _registeredCommands)
     {
       try
       {
-        Core.Logger.LogInformation("[QuakeSounds] Unregistering command: {Command}", commandName);
-
         Core.Command.UnregisterCommand(commandName);
       }
       catch (Exception ex)
       {
-        Core.Logger.LogWarning(ex, "[QuakeSounds] Failed to unregister command: {Command}", commandName);
+        Core.Logger.LogError(ex, "[QuakeSounds] Failed to unregister command: {Command}", commandName);
       }
     }
     _registeredCommands.Clear();
@@ -93,9 +141,16 @@ public partial class QuakeSounds : BasePlugin {
     _configReloadRegistration?.Dispose();
     _configReloadRegistration = null;
 
-    _audioService?.ClearCache();
+    _soundService?.ClearCache();
     _gameStateService.ResetAll();
-    Core.Logger.LogInformation("[QuakeSounds] Unload completed");
+  }
+
+  private void Event_OnPrecacheResource(SwiftlyS2.Shared.Events.IOnPrecacheResourceEvent @event)
+  {
+    if (!string.IsNullOrEmpty(_config.SoundEventFile))
+    {
+      @event.AddItem(_config.SoundEventFile);
+    }
   }
 
   private void ReloadConfig()
@@ -121,5 +176,10 @@ public partial class QuakeSounds : BasePlugin {
     }
     
     Core.Logger.LogInformation("[QuakeSounds] Config reloaded. Enabled: {Enabled}. KillStreakAnnounces count: {Count}", _config.Enabled, _config.KillStreakAnnounces.Count);
+  }
+
+  private bool IsPluginEnabled()
+  {
+    return (_qsEnabled?.Value ?? (_config.Enabled ? 1 : 0)) != 0;
   }
 }
