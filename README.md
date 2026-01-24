@@ -97,7 +97,7 @@ Need help or have questions? Join our Discord server:
 The plugin uses SwiftlyS2's JSON config system.
 
 - **File name**: `config.jsonc`
-- **Section**: `swiftlys2/configs/plugins/QuakeSounds/`
+- **Location**: `game/csgo/addons/swiftlys2/configs/plugins/QuakeSounds/config.jsonc`
 
 On first run the config is created automatically. The resolved path is logged on startup.
 
@@ -112,16 +112,25 @@ If you are using **Workshop Addons / sound events mode** (no Audio plugin), the 
 - `Volume`: Base volume (0-1) used when no per-player override exists (default: 1.0)
 - `CountSelfKills` / `CountTeamKills`: Whether to include suicides/team-kills in streaks (default: false / false)
 - `ResetKillsOnDeath` / `ResetKillsOnRoundStart`: Reset counters after death or at round start (default: true / true)
+- `PrioritizeSpecialKills`: When true, special kills (taser/knife/headshot/noscope) take priority over streak sounds (default: false)
 - `PlayInWarmup`: Allow sounds during warmup (default: false)
 - `MultiKillWindowSeconds`: Time window to chain multi-kills (default: 1.5)
-- `messages`: Enable chat/center messages and customize `chat_prefix` + `chat_prefix_color`
+- `EnableChatMessage` / `EnableCenterMessage`: Enable/disable chat and center-screen messages (default: true / true)
+- `ChatPrefix` / `ChatPrefixColor`: Customize the chat prefix (default: `[QuakeSounds]` / `[green]`)
 - `Sounds`: Map sound keys (e.g., `doublekill`, `headshot`, `weapon_awp`) to file names/paths
 - `KillStreakAnnounces`: Map kill counts to sound keys used for streaks
+
+
+#### Addon sounds mode
+
+When using **Workshop Addons / sound events** mode, each `Sounds` entry should be a **sound event name** (e.g. `quakesounds.doublekill`).
 
 ### Commands
 
 - `!volume <0-10>`: Set your personal QuakeSounds volume (falls back to `Volume` when unset).
 - `!quake`: Toggle QuakeSounds on or off for yourself.
+
+Per-player volume and enable/disable are stored in memory (reset on plugin unload / server restart).
 
 ### CVars
 
