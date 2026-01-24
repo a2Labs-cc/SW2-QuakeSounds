@@ -42,6 +42,11 @@ public partial class QuakeSounds
             return HookResult.Continue;
         }
 
+        if (IsWarmupBlockedByConfig())
+        {
+            return HookResult.Continue;
+        }
+
         var victim = @event.Accessor.GetPlayer("userid");
         var attacker = @event.Accessor.GetPlayer("attacker");
 
@@ -53,7 +58,7 @@ public partial class QuakeSounds
             return HookResult.Continue;
         }
 
-        if (attackerSteamId != 0 && !_gameStateService.ShouldProcessDeathEvent(attackerSteamId, victimSteamId, @event.Headshot, @event.Weapon, 250))
+        if (attackerSteamId != 0 && !_gameStateService.ShouldProcessDeathEvent(attackerSteamId, victimSteamId, @event.Headshot, @event.NoScope, @event.Weapon, 250))
         {
             return HookResult.Continue;
         }
@@ -71,6 +76,39 @@ public partial class QuakeSounds
         var killCount = _gameStateService.IncrementKillCount(attacker.PlayerID);
         var (multiKillCount, isMultiKill) = _gameStateService.UpdateMultiKill(attacker.PlayerID, _config.MultiKillWindowSeconds);
 
+        if (_config.PrioritizeSpecialKills)
+        {
+            if (@event.Weapon.Contains("taser", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "taser_kill"))
+            {
+                return HookResult.Continue;
+            }
+
+            if (@event.Weapon.Contains("knife", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryPlay(attacker, "knife_kill"))
+                {
+                    return HookResult.Continue;
+                }
+
+                if (TryPlay(attacker, "humiliation"))
+                {
+                    return HookResult.Continue;
+                }
+            }
+
+            if (@event.Headshot)
+            {
+                bool playedHeadshot = TryPlay(attacker, "headshot");
+                if (playedHeadshot) return HookResult.Continue;
+            }
+
+            if (@event.NoScope)
+            {
+                bool playedNoScope = TryPlay(attacker, "noscope");
+                if (playedNoScope) return HookResult.Continue;
+            }
+        }
+
         if (!_gameStateService.FirstBloodDone && victim is { IsValid: true } && victim.PlayerID != attacker.PlayerID)
         {
             _gameStateService.FirstBloodDone = true;
@@ -80,45 +118,64 @@ public partial class QuakeSounds
             }
         }
 
-        if (@event.Weapon.Contains("taser", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "taser_kill"))
+        if (!_config.PrioritizeSpecialKills)
         {
-            return HookResult.Continue;
-        }
-
-        if (@event.Weapon.Contains("knife", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TryPlay(attacker, "knife_kill"))
+            if (@event.Weapon.Contains("taser", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "taser_kill"))
             {
                 return HookResult.Continue;
             }
 
-            if (TryPlay(attacker, "humiliation"))
+            if (@event.Weapon.Contains("knife", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryPlay(attacker, "knife_kill"))
+                {
+                    return HookResult.Continue;
+                }
+
+                if (TryPlay(attacker, "humiliation"))
+                {
+                    return HookResult.Continue;
+                }
+            }
+        }
+
+        if (killCount >= 6)
+        {
+            if (TryPlayKillStreak(attacker, killCount))
             {
                 return HookResult.Continue;
             }
         }
-
-        if (isMultiKill)
+        else if (isMultiKill && multiKillCount >= 2 && multiKillCount <= 5)
         {
             if (TryPlayKillStreak(attacker, multiKillCount))
             {
                 return HookResult.Continue;
             }
         }
-
-        if (TryPlayKillStreak(attacker, killCount))
+        else if (killCount >= 2)
         {
-            return HookResult.Continue;
+            if (TryPlayKillStreak(attacker, killCount))
+            {
+                return HookResult.Continue;
+            }
         }
-        else
-        {
-            _ = _config.KillStreakAnnounces.ContainsKey(killCount);
-        }
+        
+        _ = _config.KillStreakAnnounces.ContainsKey(killCount);
 
-        if (@event.Headshot)
+        if (!_config.PrioritizeSpecialKills)
         {
-            bool playedHeadshot = TryPlay(attacker, "headshot");
-            if (playedHeadshot) return HookResult.Continue;
+            if (@event.Headshot)
+            {
+                bool playedHeadshot = TryPlay(attacker, "headshot");
+                if (playedHeadshot) return HookResult.Continue;
+            }
+
+            if (@event.NoScope)
+            {
+                bool playedNoScope = TryPlay(attacker, "noscope");
+                if (playedNoScope) return HookResult.Continue;
+            }
         }
 
         if (@event.Weapon.Contains("hegrenade", StringComparison.OrdinalIgnoreCase) && TryPlay(attacker, "perfect"))
@@ -147,6 +204,11 @@ public partial class QuakeSounds
             return false;
         }
 
+        if (IsWarmupBlockedByConfig())
+        {
+            return false;
+        }
+
         // Try to play sound
         var played = _soundService?.TryPlay(
           attacker,
@@ -156,7 +218,7 @@ public partial class QuakeSounds
           id => _gameStateService.GetPlayerVolume(id)
         ) ?? false;
 
-        if (_config.Sounds.ContainsKey(soundKey))
+        if (_config.Sounds.ContainsKey(soundKey) && (_config.EnableChatMessage || _config.EnableCenterMessage))
         {
             if (_config.PlayToAll)
             {

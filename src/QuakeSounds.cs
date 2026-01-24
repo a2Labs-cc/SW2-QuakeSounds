@@ -8,16 +8,20 @@ using SwiftlyS2.Shared.Misc;
 using SwiftlyS2.Shared.Plugins;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.1.0", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.2.0", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
   private ISoundService? _soundService;
   private readonly GameStateService _gameStateService;
   private readonly MessageService _messageService;
   private QuakeSoundsConfig _config = new();
   private IConVar<int>? _qsEnabled;
+  private IConVar<int>? _mpWarmupPauseTimer;
   private IDisposable? _configReloadRegistration;
   private readonly List<string> _registeredCommands = new();
 
@@ -81,12 +85,22 @@ public partial class QuakeSounds : BasePlugin {
 
   public override void Load(bool hotReload)
   {
-    Core.Configuration
-      .InitializeJsonWithModel<QuakeSoundsConfig>("config.jsonc", "Main")
-      .Configure(builder =>
+    var configPath = Core.Configuration.GetConfigPath("config.jsonc");
+    if (!File.Exists(configPath))
+    {
+      var defaults = new QuakeSoundsConfig();
+      var defaultJson = JsonSerializer.Serialize(defaults, new JsonSerializerOptions
       {
-        builder.AddJsonFile("config.jsonc", optional: false, reloadOnChange: true);
+        WriteIndented = true
       });
+
+      File.WriteAllText(configPath, defaultJson);
+    }
+
+    Core.Configuration.Configure(builder =>
+    {
+      builder.AddJsonFile("config.jsonc", optional: false, reloadOnChange: true);
+    });
 
     ReloadConfig();
 
@@ -97,6 +111,8 @@ public partial class QuakeSounds : BasePlugin {
       0,
       1
     );
+
+    _mpWarmupPauseTimer = Core.ConVar.Find<int>("mp_warmup_pausetimer");
 
     if (!_config.UseAudioPlugin && !string.IsNullOrEmpty(_config.SoundEventFile))
     {
@@ -156,10 +172,13 @@ public partial class QuakeSounds : BasePlugin {
   private void ReloadConfig()
   {
     var defaults = new QuakeSoundsConfig();
-    var loaded = Core.Configuration.Manager.GetSection("Main").Get<QuakeSoundsConfig>();
-    _config = loaded ?? defaults;
+    QuakeSoundsConfig? loaded = Core.Configuration.Manager.Get<QuakeSoundsConfig>();
+    loaded ??= Core.Configuration.Manager.GetSection("Main").Get<QuakeSoundsConfig>();
 
+    _config = loaded ?? defaults;
+    
     _config.Sounds ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     foreach (var kvp in defaults.Sounds)
     {
       _config.Sounds.TryAdd(kvp.Key, kvp.Value);
@@ -175,7 +194,49 @@ public partial class QuakeSounds : BasePlugin {
       }
     }
     
-    Core.Logger.LogInformation("[QuakeSounds] Config reloaded. Enabled: {Enabled}. KillStreakAnnounces count: {Count}", _config.Enabled, _config.KillStreakAnnounces.Count);
+    Core.Logger.LogInformation(
+      "[QuakeSounds] Config reloaded. Enabled: {Enabled}. EnableChatMessage: {EnableChatMessage}, EnableCenterMessage: {EnableCenterMessage}. KillStreakAnnounces count: {Count}",
+      _config.Enabled,
+      _config.EnableChatMessage,
+      _config.EnableCenterMessage,
+      _config.KillStreakAnnounces.Count
+    );
+  }
+
+  private bool IsWarmupBlockedByConfig()
+  {
+    if (_config.PlayInWarmup)
+    {
+      return false;
+    }
+
+    bool warmupActive = false;
+
+    // Primary warmup detection via gamerules.
+    // EntitySystem might not be ready early, so this is best-effort.
+    try
+    {
+      var gameRules = Core.EntitySystem.GetGameRules();
+      warmupActive = gameRules != null && gameRules.WarmupPeriod;
+    }
+    catch
+    {
+      // If game rules lookup fails for any reason, fall back to convar.
+    }
+
+    // Fallback warmup detection via game convar.
+    // If the convar is missing, fail open (do not block sounds).
+    if (!warmupActive)
+    {
+      warmupActive = (_mpWarmupPauseTimer?.Value ?? 0) != 0;
+    }
+
+    if (warmupActive && _config.Debug)
+    {
+      Core.Logger.LogInformation("[QuakeSounds] Blocking sound playback due to warmup (PlayInWarmup=false).");
+    }
+
+    return warmupActive;
   }
 
   private bool IsPluginEnabled()

@@ -19,12 +19,19 @@ public partial class QuakeSounds
     public bool ResetKillsOnDeath { get; set; } = true;
     public bool ResetKillsOnRoundStart { get; set; } = true;
 
+    public bool PrioritizeSpecialKills { get; set; } = false;
+
     public bool PlayInWarmup { get; set; } = false;
 
     public float MultiKillWindowSeconds { get; set; } = 1.5f;
 
-    [JsonPropertyName("messages")]
-    public MessageSettings Messages { get; set; } = new();
+    public bool EnableCenterMessage { get; set; } = true;
+
+    public bool EnableChatMessage { get; set; } = true;
+
+    public string ChatPrefix { get; set; } = "[QuakeSounds]";
+
+    public string ChatPrefixColor { get; set; } = "[green]";
 
     public Dictionary<string, string> Sounds { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -40,8 +47,10 @@ public partial class QuakeSounds
       ["knife_kill"] = "knife_kill.mp3",
       ["killingspree"] = "killingspree.mp3",
       ["ludicrouskill"] = "ludicrouskill.mp3",
+      ["megakill"] = "megakill.mp3",
       ["monsterkill"] = "monsterkill.mp3",
       ["multikill"] = "multikill.mp3",
+      ["noscope"] = "noscope.mp3",
       ["ownage"] = "ownage.mp3",
       ["perfect"] = "perfect.mp3",
       ["rampage"] = "rampage.mp3",
@@ -76,20 +85,5 @@ public partial class QuakeSounds
       [20] = "ownage",
       [25] = "combowhore"
     };
-  }
-
-  public class MessageSettings
-  {
-    [JsonPropertyName("enable_center_message")]
-    public bool EnableCenterMessage { get; set; } = true;
-
-    [JsonPropertyName("enable_chat_message")]
-    public bool EnableChatMessage { get; set; } = true;
-
-    [JsonPropertyName("chat_prefix")]
-    public string ChatPrefix { get; set; } = "[QuakeSounds]";
-
-    [JsonPropertyName("chat_prefix_color")]
-    public string ChatPrefixColor { get; set; } = "[green]";
   }
 }

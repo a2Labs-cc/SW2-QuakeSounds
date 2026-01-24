@@ -15,7 +15,7 @@ public class MessageService
 
     public void PrintMessage(IPlayer recipient, IPlayer attacker, string soundKey, global::QuakeSounds.QuakeSounds.QuakeSoundsConfig config)
     {
-        if (!config.Messages.EnableChatMessage && !config.Messages.EnableCenterMessage) return;
+        if (!config.EnableChatMessage && !config.EnableCenterMessage) return;
 
         // Get the "inner" message (e.g. "Double Kill")
         var messageKey = $"quake.{soundKey.ToLower()}";
@@ -39,8 +39,8 @@ public class MessageService
 
         // Format
         var playerName = attacker.Controller?.PlayerName ?? "Unknown";
-        var prefix = $"{config.Messages.ChatPrefixColor}{config.Messages.ChatPrefix}";
-        var plainPrefix = $"{config.Messages.ChatPrefix}";
+        var prefix = $"{config.ChatPrefixColor}{config.ChatPrefix}";
+        var plainPrefix = $"{config.ChatPrefix}";
         
         var plainFormatted = format
             .Replace("[prefix]", plainPrefix)
@@ -53,12 +53,12 @@ public class MessageService
             .Replace("[player]", playerName)
             .Colored();
 
-        if (config.Messages.EnableChatMessage)
+        if (config.EnableChatMessage)
         {
             recipient.SendChat(formatted);
         }
 
-        if (config.Messages.EnableCenterMessage)
+        if (config.EnableCenterMessage)
         {
             recipient.SendAlert(messageContent);
         }

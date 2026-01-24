@@ -61,6 +61,11 @@ public class AudioService : ISoundService
 
         var resolvedPath = ResolvePath(configuredPath);
 
+        if (config.Debug)
+        {
+            _core.Logger.LogInformation("[QuakeSounds] TryPlay soundKey={Key} configuredPath={ConfiguredPath} resolvedPath={ResolvedPath} playToAll={PlayToAll}", soundKey, configuredPath, resolvedPath, config.PlayToAll);
+        }
+
         if (!File.Exists(resolvedPath))
         {
             _core.Logger.LogWarning("[QuakeSounds] Missing sound file for key '{Key}': {Path}", soundKey, resolvedPath);
@@ -116,10 +121,32 @@ public class AudioService : ISoundService
                     continue;
                 }
 
+                if (player.PlayerID <= 0)
+                {
+                    if (config.Debug)
+                    {
+                        _core.Logger.LogWarning("[QuakeSounds] Audio PlayToAll skipped due to invalid PlayerID. PlayerID={PlayerID} SteamID={SteamID}", player.PlayerID, player.SteamID);
+                    }
+                    continue;
+                }
+
                 var volume = GetEffectiveVolume(player.SteamID);
-                channel.SetVolume(player.PlayerID, volume);
-                channel.Play(player.PlayerID);
-                anyPlayed = true;
+
+                try
+                {
+                    if (config.Debug)
+                    {
+                        _core.Logger.LogInformation("[QuakeSounds] Audio PlayToAll -> PlayerID={PlayerID} SteamID={SteamID} Volume={Volume}", player.PlayerID, player.SteamID, volume);
+                    }
+
+                    channel.SetVolume(player.PlayerID, volume);
+                    channel.Play(player.PlayerID);
+                    anyPlayed = true;
+                }
+                catch (Exception ex)
+                {
+                    _core.Logger.LogError(ex, "[QuakeSounds] Audio failed for player. PlayerID={PlayerID} SteamID={SteamID} soundKey={Key}", player.PlayerID, player.SteamID, soundKey);
+                }
             }
             return anyPlayed;
         }
@@ -130,9 +157,28 @@ public class AudioService : ISoundService
         }
 
         var attackerVolume = GetEffectiveVolume(attacker.SteamID);
-        channel.SetVolume(attacker.PlayerID, attackerVolume);
-        channel.Play(attacker.PlayerID);
-        return true;
+        try
+        {
+            if (config.Debug)
+            {
+                _core.Logger.LogInformation("[QuakeSounds] Audio Play -> PlayerID={PlayerID} SteamID={SteamID} Volume={Volume} soundKey={Key}", attacker.PlayerID, attacker.SteamID, attackerVolume, soundKey);
+            }
+
+            if (attacker.PlayerID <= 0)
+            {
+                _core.Logger.LogWarning("[QuakeSounds] Audio Play skipped due to invalid PlayerID. PlayerID={PlayerID} SteamID={SteamID} soundKey={Key}", attacker.PlayerID, attacker.SteamID, soundKey);
+                return false;
+            }
+
+            channel.SetVolume(attacker.PlayerID, attackerVolume);
+            channel.Play(attacker.PlayerID);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _core.Logger.LogError(ex, "[QuakeSounds] Audio failed for attacker. PlayerID={PlayerID} SteamID={SteamID} soundKey={Key}", attacker.PlayerID, attacker.SteamID, soundKey);
+            return false;
+        }
     }
 
     private string ResolvePath(string configuredPath)

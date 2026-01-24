@@ -63,10 +63,14 @@ public class AddonSoundService : ISoundService
 
     private void PlaySoundToPlayer(IPlayer player, string soundPath, float volume)
     {
+        var sourceEntityIndex = -1;
         if (player.Pawn == null)
         {
-            _core.Logger.LogWarning("[QuakeSounds] Player pawn is null, cannot play sound.");
-            return;
+            _core.Logger.LogWarning("[QuakeSounds] Player pawn is null, emitting sound without a source entity. PlayerID={PlayerID} SteamID={SteamID}", player.PlayerID, player.SteamID);
+        }
+        else
+        {
+            sourceEntityIndex = (int)player.Pawn.Index;
         }
 
         var soundName = soundPath.Replace(".vsnd_c", "").Replace(".vsnd", "");
@@ -77,7 +81,7 @@ public class AddonSoundService : ISoundService
             {
                 Name = soundName,
                 Volume = volume,
-                SourceEntityIndex = (int)player.Pawn.Index
+                SourceEntityIndex = sourceEntityIndex
             };
 
             soundEvent.Recipients.AddRecipient(player.PlayerID);

@@ -14,6 +14,11 @@ public partial class QuakeSounds
       return;
     }
 
+    if (IsWarmupBlockedByConfig())
+    {
+      return;
+    }
+
     var anyPlayer = Core.PlayerManager.GetAllPlayers()
       .FirstOrDefault(p => p is { IsValid: true } && !p.IsFakeClient);
 
@@ -23,14 +28,14 @@ public partial class QuakeSounds
     }
 
     var originalPlayToAll = _config.PlayToAll;
-    var originalCenter = _config.Messages.EnableCenterMessage;
-    var originalChat = _config.Messages.EnableChatMessage;
+    var originalCenter = _config.EnableCenterMessage;
+    var originalChat = _config.EnableChatMessage;
 
     try
     {
       _config.PlayToAll = true;
-      _config.Messages.EnableCenterMessage = false;
-      _config.Messages.EnableChatMessage = false;
+      _config.EnableCenterMessage = false;
+      _config.EnableChatMessage = false;
 
       _soundService?.TryPlay(
         anyPlayer,
@@ -43,8 +48,8 @@ public partial class QuakeSounds
     finally
     {
       _config.PlayToAll = originalPlayToAll;
-      _config.Messages.EnableCenterMessage = originalCenter;
-      _config.Messages.EnableChatMessage = originalChat;
+      _config.EnableCenterMessage = originalCenter;
+      _config.EnableChatMessage = originalChat;
     }
   }
 

@@ -90,12 +90,12 @@ public class GameStateService
         return _playerEnabledOverride.TryGetValue(steamId, out var enabled) ? enabled : true;
     }
 
-    public bool ShouldProcessDeathEvent(ulong attackerSteamId, ulong victimSteamId, bool headshot, string weapon, long dedupeWindowMs)
+    public bool ShouldProcessDeathEvent(ulong attackerSteamId, ulong victimSteamId, bool headshot, bool noScope, string weapon, long dedupeWindowMs)
     {
         if (dedupeWindowMs <= 0) return true;
 
         var weaponKey = weapon ?? string.Empty;
-        var key = $"{attackerSteamId}:{victimSteamId}:{(headshot ? 1 : 0)}:{weaponKey}";
+        var key = $"{attackerSteamId}:{victimSteamId}:{(headshot ? 1 : 0)}:{(noScope ? 1 : 0)}:{weaponKey}";
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         if (_recentDeathEvents.TryAdd(key, now))
