@@ -24,7 +24,10 @@ public class AddonSoundService : ISoundService
     {
         if (!config.Sounds.TryGetValue(soundKey, out var soundPath) || string.IsNullOrWhiteSpace(soundPath))
         {
-            _core.Logger.LogWarning("[QuakeSounds] Sound key '{Key}' is not mapped in config.", soundKey);
+            if (config.Debug)
+            {
+                _core.Logger.LogWarning("[QuakeSounds] Sound key '{Key}' is not mapped in config.", soundKey);
+            }
             return false;
         }
 

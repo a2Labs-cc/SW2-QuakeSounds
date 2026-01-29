@@ -20,6 +20,7 @@ public partial class QuakeSounds : BasePlugin {
   private readonly GameStateService _gameStateService;
   private readonly MessageService _messageService;
   private QuakeSoundsConfig _config = new();
+  private readonly HashSet<string> _missingSoundFilesLogged = new(StringComparer.OrdinalIgnoreCase);
   private IConVar<int>? _qsEnabled;
   private IConVar<int>? _mpWarmupPauseTimer;
   private IDisposable? _configReloadRegistration;
@@ -88,7 +89,7 @@ public partial class QuakeSounds : BasePlugin {
     var configPath = Core.Configuration.GetConfigPath("config.jsonc");
     if (!File.Exists(configPath))
     {
-      var defaults = new QuakeSoundsConfig();
+      var defaults = QuakeSoundsConfig.CreateDefaults();
       var defaultJson = JsonSerializer.Serialize(defaults, new JsonSerializerOptions
       {
         WriteIndented = true
@@ -176,12 +177,17 @@ public partial class QuakeSounds : BasePlugin {
     loaded ??= Core.Configuration.Manager.GetSection("Main").Get<QuakeSoundsConfig>();
 
     _config = loaded ?? defaults;
-    
-    _config.Sounds ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    foreach (var kvp in defaults.Sounds)
+    // Preserve the user's config exactly: if a sound key is missing (e.g. commented out in JSONC),
+    // treat it as disabled by NOT re-populating it from defaults.
+    // Ensure case-insensitive lookups regardless of how the configuration binder instantiated the dictionary.
+    if (_config.Sounds == null)
     {
-      _config.Sounds.TryAdd(kvp.Key, kvp.Value);
+      _config.Sounds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+    else if (_config.Sounds.Comparer != StringComparer.OrdinalIgnoreCase)
+    {
+      _config.Sounds = new Dictionary<string, string>(_config.Sounds, StringComparer.OrdinalIgnoreCase);
     }
 
     _config.KillStreakAnnounces ??= new Dictionary<int, string>();
@@ -193,7 +199,7 @@ public partial class QuakeSounds : BasePlugin {
           _config.KillStreakAnnounces[kvp.Key] = kvp.Value;
       }
     }
-    
+
     Core.Logger.LogInformation(
       "[QuakeSounds] Config reloaded. Enabled: {Enabled}. EnableChatMessage: {EnableChatMessage}, EnableCenterMessage: {EnableCenterMessage}. KillStreakAnnounces count: {Count}",
       _config.Enabled,
@@ -201,6 +207,40 @@ public partial class QuakeSounds : BasePlugin {
       _config.EnableCenterMessage,
       _config.KillStreakAnnounces.Count
     );
+
+    if (_config.Debug && _config.UseAudioPlugin)
+    {
+      foreach (var kvp in _config.Sounds)
+      {
+        var key = kvp.Key;
+        var configuredPath = kvp.Value;
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(configuredPath))
+        {
+          continue;
+        }
+
+        var resolvedPath = ResolveSoundPath(configuredPath);
+        if (string.IsNullOrWhiteSpace(resolvedPath))
+        {
+          continue;
+        }
+
+        if (!File.Exists(resolvedPath) && _missingSoundFilesLogged.Add($"{key}|{resolvedPath}"))
+        {
+          Core.Logger.LogWarning("[QuakeSounds] Missing sound file for key '{Key}': {Path}", key, resolvedPath);
+        }
+      }
+    }
+  }
+
+  private string ResolveSoundPath(string configuredPath)
+  {
+    if (Path.IsPathRooted(configuredPath)) return configuredPath;
+
+    var dataPath = Path.Combine(Core.PluginDataDirectory, configuredPath);
+    if (File.Exists(dataPath)) return dataPath;
+
+    return Path.Combine(Core.PluginPath, configuredPath);
   }
 
   private bool IsWarmupBlockedByConfig()

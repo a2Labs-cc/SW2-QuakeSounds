@@ -33,36 +33,48 @@ public partial class QuakeSounds
 
     public string ChatPrefixColor { get; set; } = "[green]";
 
-    public Dictionary<string, string> Sounds { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    public Dictionary<string, string> Sounds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public static QuakeSoundsConfig CreateDefaults()
     {
-      ["combowhore"] = "combowhore.mp3",
-      ["dominating"] = "dominating.mp3",
-      ["doublekill"] = "doublekill.mp3",
-      ["firstblood"] = "firstblood.mp3",
-      ["godlike"] = "godlike.mp3",
-      ["headshot"] = "headshot.mp3",
-      ["holyshit"] = "holyshit.mp3",
-      ["humiliation"] = "humiliation.mp3",
-      ["impressive"] = "impressive.mp3",
-      ["knife_kill"] = "knife_kill.mp3",
-      ["killingspree"] = "killingspree.mp3",
-      ["ludicrouskill"] = "ludicrouskill.mp3",
-      ["megakill"] = "megakill.mp3",
-      ["monsterkill"] = "monsterkill.mp3",
-      ["multikill"] = "multikill.mp3",
-      ["noscope"] = "noscope.mp3",
-      ["ownage"] = "ownage.mp3",
-      ["perfect"] = "perfect.mp3",
-      ["rampage"] = "rampage.mp3",
-      ["round_freeze_end"] = "round_freeze_end.mp3",
-      ["round_start"] = "round_start.mp3",
-      ["taser_kill"] = "taser_kill.mp3",
-      ["triplekill"] = "triplekill.mp3",
-      ["ultrakill"] = "ultrakill.mp3",
-      ["unstoppable"] = "unstoppable.mp3",
-      ["wickedsick"] = "wickedsick.mp3",
-      ["wrecker"] = "wrecker.mp3"
-    };
+      var cfg = new QuakeSoundsConfig();
+      cfg.Sounds = CreateDefaultSounds();
+      return cfg;
+    }
+
+    private static Dictionary<string, string> CreateDefaultSounds()
+    {
+      return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+      {
+        ["combowhore"] = "combowhore.mp3",
+        ["dominating"] = "dominating.mp3",
+        ["doublekill"] = "doublekill.mp3",
+        ["firstblood"] = "firstblood.mp3",
+        ["godlike"] = "godlike.mp3",
+        ["headshot"] = "headshot.mp3",
+        ["holyshit"] = "holyshit.mp3",
+        ["humiliation"] = "humiliation.mp3",
+        ["impressive"] = "impressive.mp3",
+        ["knife_kill"] = "knife_kill.mp3",
+        ["killingspree"] = "killingspree.mp3",
+        ["ludicrouskill"] = "ludicrouskill.mp3",
+        ["megakill"] = "megakill.mp3",
+        ["monsterkill"] = "monsterkill.mp3",
+        ["multikill"] = "multikill.mp3",
+        ["noscope"] = "noscope.mp3",
+        ["ownage"] = "ownage.mp3",
+        ["perfect"] = "perfect.mp3",
+        ["rampage"] = "rampage.mp3",
+        ["round_freeze_end"] = "round_freeze_end.mp3",
+        ["round_start"] = "round_start.mp3",
+        ["taser_kill"] = "taser_kill.mp3",
+        ["triplekill"] = "triplekill.mp3",
+        ["ultrakill"] = "ultrakill.mp3",
+        ["unstoppable"] = "unstoppable.mp3",
+        ["wickedsick"] = "wickedsick.mp3",
+        ["wrecker"] = "wrecker.mp3"
+      };
+    }
 
     public Dictionary<int, string> KillStreakAnnounces { get; set; } = new()
     {

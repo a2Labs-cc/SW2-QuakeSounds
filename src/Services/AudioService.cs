@@ -3,7 +3,6 @@ using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Players;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -55,7 +54,10 @@ public class AudioService : ISoundService
 
         if (!config.Sounds.TryGetValue(soundKey, out var configuredPath) || string.IsNullOrWhiteSpace(configuredPath))
         {
-            _core.Logger.LogWarning("[QuakeSounds] Sound key '{Key}' is not mapped in config.", soundKey);
+            if (config.Debug)
+            {
+                _core.Logger.LogWarning("[QuakeSounds] Sound key '{Key}' is not mapped in config.", soundKey);
+            }
             return false;
         }
 
@@ -68,7 +70,6 @@ public class AudioService : ISoundService
 
         if (!File.Exists(resolvedPath))
         {
-            _core.Logger.LogWarning("[QuakeSounds] Missing sound file for key '{Key}': {Path}", soundKey, resolvedPath);
             return false;
         }
 
