@@ -115,19 +115,10 @@ public class AudioService : ISoundService
         if (config.PlayToAll)
         {
             var anyPlayed = false;
-            foreach (var player in _core.PlayerManager.GetAllPlayers().Where(p => p is { IsValid: true } && !p.IsFakeClient))
+            foreach (var player in _core.PlayerManager.GetAllPlayers().Where(p => p is { IsValid: true } && !p.IsFakeClient && p.PlayerID > 0))
             {
                 if (!isPlayerEnabled(player.SteamID))
                 {
-                    continue;
-                }
-
-                if (player.PlayerID <= 0)
-                {
-                    if (config.Debug)
-                    {
-                        _core.Logger.LogWarning("[QuakeSounds] Audio PlayToAll skipped due to invalid PlayerID. PlayerID={PlayerID} SteamID={SteamID}", player.PlayerID, player.SteamID);
-                    }
                     continue;
                 }
 

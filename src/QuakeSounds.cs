@@ -14,7 +14,7 @@ using System.Text.Json;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.2.1", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.2.2", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
   private ISoundService? _soundService;
   private readonly GameStateService _gameStateService;
