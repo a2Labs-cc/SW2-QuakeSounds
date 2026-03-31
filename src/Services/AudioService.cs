@@ -151,19 +151,21 @@ public class AudioService : ISoundService
         var attackerVolume = GetEffectiveVolume(attacker.SteamID);
         try
         {
+            var attackerPlayerId = ResolvePlayerId(attacker);
+
             if (config.Debug)
             {
-                _core.Logger.LogInformation("[QuakeSounds] Audio Play -> PlayerID={PlayerID} SteamID={SteamID} Volume={Volume} soundKey={Key}", attacker.PlayerID, attacker.SteamID, attackerVolume, soundKey);
+                _core.Logger.LogInformation("[QuakeSounds] Audio Play -> PlayerID={PlayerID} SteamID={SteamID} Volume={Volume} soundKey={Key}", attackerPlayerId, attacker.SteamID, attackerVolume, soundKey);
             }
 
-            if (attacker.PlayerID <= 0)
+            if (attackerPlayerId <= 0)
             {
-                _core.Logger.LogWarning("[QuakeSounds] Audio Play skipped due to invalid PlayerID. PlayerID={PlayerID} SteamID={SteamID} soundKey={Key}", attacker.PlayerID, attacker.SteamID, soundKey);
+                _core.Logger.LogWarning("[QuakeSounds] Audio Play skipped due to invalid PlayerID. PlayerID={PlayerID} SteamID={SteamID} soundKey={Key}", attackerPlayerId, attacker.SteamID, soundKey);
                 return false;
             }
 
-            channel.SetVolume(attacker.PlayerID, attackerVolume);
-            channel.Play(attacker.PlayerID);
+            channel.SetVolume(attackerPlayerId, attackerVolume);
+            channel.Play(attackerPlayerId);
             return true;
         }
         catch (Exception ex)
@@ -181,5 +183,24 @@ public class AudioService : ISoundService
         if (File.Exists(dataPath)) return dataPath;
 
         return Path.Combine(_core.PluginPath, configuredPath);
+    }
+
+    private int ResolvePlayerId(IPlayer player)
+    {
+        if (player is { IsValid: true } && player.PlayerID > 0)
+        {
+            return player.PlayerID;
+        }
+
+        if (player.SteamID == 0)
+        {
+            return 0;
+        }
+
+        var resolvedPlayer = _core.PlayerManager
+            .GetAllPlayers()
+            .FirstOrDefault(p => p is { IsValid: true } && !p.IsFakeClient && p.SteamID == player.SteamID && p.PlayerID > 0);
+
+        return resolvedPlayer?.PlayerID ?? 0;
     }
 }

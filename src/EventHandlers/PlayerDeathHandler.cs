@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SwiftlyS2.Shared.GameEvents;
 using SwiftlyS2.Shared.GameEventDefinitions;
 using SwiftlyS2.Shared.Misc;
@@ -55,6 +56,26 @@ public partial class QuakeSounds
 
         if (attacker is not { IsValid: true } || attacker.IsFakeClient)
         {
+            return HookResult.Continue;
+        }
+
+        if (attacker.PlayerID <= 0 && attackerSteamId != 0)
+        {
+            var resolvedAttacker = Core.PlayerManager.GetAllPlayers()
+                .FirstOrDefault(p => p is { IsValid: true } && !p.IsFakeClient && p.SteamID == attackerSteamId && p.PlayerID > 0);
+
+            if (resolvedAttacker is not null)
+            {
+                attacker = resolvedAttacker;
+            }
+        }
+
+        if (attacker.PlayerID <= 0)
+        {
+            if (_config.Debug)
+            {
+                Core.Logger.LogWarning("[QuakeSounds] Skipping death event due to unresolved attacker PlayerID. SteamID={SteamID}", attackerSteamId);
+            }
             return HookResult.Continue;
         }
 
