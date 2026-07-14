@@ -14,11 +14,12 @@ using System.Text.Json;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.2.3", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.2.4", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
   private ISoundService? _soundService;
-  private readonly GameStateService _gameStateService;
+  private GameStateService _gameStateService = null!;
   private readonly MessageService _messageService;
+  private PlayerCookiesApiWrapper? _playerCookies;
   private QuakeSoundsConfig _config = new();
   private readonly HashSet<string> _missingSoundFilesLogged = new(StringComparer.OrdinalIgnoreCase);
   private IConVar<int>? _qsEnabled;
@@ -28,7 +29,6 @@ public partial class QuakeSounds : BasePlugin {
 
   public QuakeSounds(ISwiftlyCore core) : base(core)
   {
-    _gameStateService = new GameStateService();
     _messageService = new MessageService(core);
   }
 
@@ -38,15 +38,8 @@ public partial class QuakeSounds : BasePlugin {
 
   public override void UseSharedInterface(IInterfaceManager interfaceManager)
   {
-    if (_config.UseAudioPlugin)
+    if (_config.UseAudioPlugin && interfaceManager.HasSharedInterface("audio"))
     {
-      if (!interfaceManager.HasSharedInterface("audio"))
-      {
-        Core.Logger.LogWarning("[QuakeSounds] Audio plugin not found, falling back to addon sounds mode.");
-        _soundService = new AddonSoundService(Core);
-        return;
-      }
-
       try
       {
         var audioApiType = Type.GetType("AudioApi.IAudioApi, AudioApi");
@@ -54,22 +47,24 @@ public partial class QuakeSounds : BasePlugin {
         {
           Core.Logger.LogWarning("[QuakeSounds] AudioApi assembly not found, falling back to addon sounds mode.");
           _soundService = new AddonSoundService(Core);
-          return;
         }
-
-        var getSharedInterfaceMethod = typeof(IInterfaceManager).GetMethod("GetSharedInterface");
-        var genericMethod = getSharedInterfaceMethod?.MakeGenericMethod(audioApiType);
-        var audioApi = genericMethod?.Invoke(interfaceManager, new object[] { "audio" });
-
-        if (audioApi == null)
+        else
         {
-          Core.Logger.LogWarning("[QuakeSounds] Failed to get Audio API interface, falling back to addon sounds mode.");
-          _soundService = new AddonSoundService(Core);
-          return;
-        }
+          var getSharedInterfaceMethod = typeof(IInterfaceManager).GetMethod("GetSharedInterface");
+          var genericMethod = getSharedInterfaceMethod?.MakeGenericMethod(audioApiType);
+          var audioApi = genericMethod?.Invoke(interfaceManager, new object[] { "audio" });
 
-        _soundService = AudioService.Create(Core, audioApi);
-        Core.Logger.LogInformation("[QuakeSounds] Using Audio API mode.");
+          if (audioApi == null)
+          {
+            Core.Logger.LogWarning("[QuakeSounds] Failed to get Audio API interface, falling back to addon sounds mode.");
+            _soundService = new AddonSoundService(Core);
+          }
+          else
+          {
+            _soundService = AudioService.Create(Core, audioApi);
+            Core.Logger.LogInformation("[QuakeSounds] Using Audio API mode.");
+          }
+        }
       }
       catch (Exception ex)
       {
@@ -79,8 +74,54 @@ public partial class QuakeSounds : BasePlugin {
     }
     else
     {
+      if (_config.UseAudioPlugin)
+      {
+        Core.Logger.LogWarning("[QuakeSounds] Audio plugin not found, falling back to addon sounds mode.");
+      }
+      else
+      {
+        Core.Logger.LogInformation("[QuakeSounds] Using addon sounds mode.");
+      }
       _soundService = new AddonSoundService(Core);
-      Core.Logger.LogInformation("[QuakeSounds] Using addon sounds mode.");
+    }
+
+    InitializeCookiesApi(interfaceManager);
+  }
+
+  private void InitializeCookiesApi(IInterfaceManager interfaceManager)
+  {
+    try
+    {
+      if (interfaceManager.HasSharedInterface("Cookies.Player.v2"))
+      {
+        var cookiesApiV2 = interfaceManager.GetSharedInterface<Cookies.Contract.IPlayerCookiesAPIv2>("Cookies.Player.v2");
+        if (cookiesApiV2 != null)
+        {
+          _playerCookies = new PlayerCookiesApiWrapper(cookiesApiV2);
+          _gameStateService?.SetPlayerCookiesApi(_playerCookies);
+          Core.Logger.LogInformation("[QuakeSounds] Cookies.Player.v2 connected; per-player settings will persist.");
+          return;
+        }
+      }
+
+      if (interfaceManager.HasSharedInterface("Cookies.Player.v1"))
+      {
+        var cookiesApi = interfaceManager.GetSharedInterface<Cookies.Contract.IPlayerCookiesAPIv1>("Cookies.Player.v1");
+        if (cookiesApi != null)
+        {
+          _playerCookies = new PlayerCookiesApiWrapper(cookiesApi);
+          _gameStateService?.SetPlayerCookiesApi(_playerCookies);
+          Core.Logger.LogInformation("[QuakeSounds] Cookies.Player.v1 connected; per-player settings will persist.");
+          return;
+        }
+      }
+
+      Core.Logger.LogInformation("[QuakeSounds] Cookies plugin not found; per-player settings will not persist.");
+    }
+    catch (Exception ex)
+    {
+      Core.Logger.LogError(ex, "[QuakeSounds] Failed to initialize Cookies API; per-player settings will not persist.");
+      _playerCookies = null;
     }
   }
 
@@ -104,6 +145,8 @@ public partial class QuakeSounds : BasePlugin {
     });
 
     ReloadConfig();
+
+    _gameStateService = new GameStateService(Core, _playerCookies);
 
     _qsEnabled = Core.ConVar.CreateOrFind<int>(
       "qs_enabled",

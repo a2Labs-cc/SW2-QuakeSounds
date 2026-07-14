@@ -182,8 +182,6 @@ public partial class QuakeSounds
             }
         }
         
-        _ = _config.KillStreakAnnounces.ContainsKey(killCount);
-
         if (!_config.PrioritizeSpecialKills)
         {
             if (@event.Headshot)

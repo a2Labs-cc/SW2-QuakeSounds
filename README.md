@@ -130,7 +130,7 @@ When using **Workshop Addons / sound events** mode, each `Sounds` entry should b
 - `!volume <0-10>`: Set your personal QuakeSounds volume (falls back to `Volume` when unset).
 - `!quake`: Toggle QuakeSounds on or off for yourself.
 
-Per-player volume and enable/disable are stored in memory (reset on plugin unload / server restart).
+Per-player volume and enable/disable are persisted through the [Cookies](https://github.com/SwiftlyS2-Plugins/Cookies) plugin when it is installed. If the Cookies plugin is not loaded, settings fall back to in-memory storage and reset on plugin unload / server restart.
 
 ### CVars
 

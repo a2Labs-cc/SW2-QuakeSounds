@@ -22,7 +22,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="resources/gamedata/**/*;resources/templates/**/*;resources/translations/**/*">
+    <Reference Include="Cookies.Contract">
+      <HintPath>resources\exports\Cookies.Contract.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="resources/gamedata/**/*;resources/templates/**/*;resources/translations/**/*;resources/exports/**/*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
