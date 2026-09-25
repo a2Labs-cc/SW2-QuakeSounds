@@ -35,9 +35,6 @@
   "quake.roundend": "[default]Round End",
   "quake.round_freeze_end": "[default]Freeze Time End",
   "commands.common.only_player": "This command can only be used by a player.",
-  "commands.volume.current": "Current QuakeSounds volume: {volume}/10",
-  "commands.volume.usage": "Usage: !volume <0-10>",
-  "commands.volume.set": "QuakeSounds volume set to {volume}/10.",
   "commands.quake.enabled": "QuakeSounds enabled.",
   "commands.quake.disabled": "QuakeSounds disabled."
 }

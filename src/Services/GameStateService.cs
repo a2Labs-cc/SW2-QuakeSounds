@@ -7,14 +7,12 @@ namespace QuakeSounds.Services;
 
 public class GameStateService
 {
-    private const string VolumeKey = "QuakeSounds.Volume";
     private const string EnabledKey = "QuakeSounds.Enabled";
 
     private readonly ISwiftlyCore _core;
     private PlayerCookiesApiWrapper? _cookies;
     private readonly ConcurrentDictionary<int, int> _killCounts = new();
     private readonly ConcurrentDictionary<int, (int Count, long LastKillTime)> _multiKillState = new();
-    private readonly ConcurrentDictionary<ulong, float> _playerVolumeOverride = new();
     private readonly ConcurrentDictionary<ulong, bool> _playerEnabledOverride = new();
     private readonly ConcurrentDictionary<string, long> _recentDeathEvents = new();
 
@@ -49,7 +47,6 @@ public class GameStateService
     {
         _killCounts.Clear();
         _multiKillState.Clear();
-        _playerVolumeOverride.Clear();
         _playerEnabledOverride.Clear();
         _recentDeathEvents.Clear();
         FirstBloodDone = false;
@@ -89,38 +86,6 @@ public class GameStateService
         );
 
         return (result.Item1, result.Item1 > 1);
-    }
-
-    public void SetPlayerVolume(ulong steamId, float volume)
-    {
-        _playerVolumeOverride[steamId] = volume;
-
-        if (_cookies == null) return;
-
-        try
-        {
-            _cookies.Set((long)steamId, VolumeKey, volume);
-        }
-        catch (Exception ex)
-        {
-            _core.Logger.LogError(ex, "[QuakeSounds] Failed to persist volume for {SteamId}", steamId);
-        }
-    }
-
-    public float GetPlayerVolume(ulong steamId)
-    {
-        if (_playerVolumeOverride.TryGetValue(steamId, out var vol))
-        {
-            return vol;
-        }
-
-        if (TryLoadCookieValue(steamId, VolumeKey, out float cookieVolume))
-        {
-            _playerVolumeOverride[steamId] = cookieVolume;
-            return cookieVolume;
-        }
-
-        return -1f; // -1 indicates no override
     }
 
     public void SetPlayerEnabled(ulong steamId, bool enabled)

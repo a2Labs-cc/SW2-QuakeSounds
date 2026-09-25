@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using Volume.Contract;
 
 namespace QuakeSounds.Services;
 
@@ -12,6 +13,7 @@ public class AudioService : ISoundService
 {
     private readonly ISwiftlyCore _core;
     private readonly dynamic _audioApi;
+    private IPlayerVolumeAPI? _volumeApi;
     private readonly ConcurrentDictionary<string, object> _decodedSources = new();
     private int _channelCounter = 0;
 
@@ -26,6 +28,8 @@ public class AudioService : ISoundService
         return new AudioService(core, audioApi);
     }
 
+    public void SetVolumeApi(IPlayerVolumeAPI? volumeApi) => _volumeApi = volumeApi;
+
     public void ClearCache()
     {
         _decodedSources.Clear();
@@ -36,14 +40,20 @@ public class AudioService : ISoundService
     {
     }
 
-    public bool TryPlay(IPlayer attacker, string soundKey, QuakeSounds.QuakeSoundsConfig config, Func<ulong, bool> isPlayerEnabled, Func<ulong, float> getPlayerVolume)
+    public bool TryPlay(IPlayer attacker, string soundKey, QuakeSounds.QuakeSoundsConfig config, Func<ulong, bool> isPlayerEnabled)
     {
         float GetEffectiveVolume(ulong steamId)
         {
-            var volume = config.Volume;
-            var overrideVolume = getPlayerVolume(steamId);
-            if (overrideVolume >= 0) volume = overrideVolume;
-            return Math.Clamp(volume, 0f, 1f);
+            if (_volumeApi == null) return Math.Clamp(config.Volume, 0f, 1f);
+            try
+            {
+                return Math.Clamp(_volumeApi.GetEffectiveVolume((long)steamId, "QuakeSounds"), 0f, 1f);
+            }
+            catch (Exception ex)
+            {
+                _core.Logger.LogError(ex, "[QuakeSounds] Volume API failed for {SteamId}", steamId);
+                return Math.Clamp(config.Volume, 0f, 1f);
+            }
         }
 
         if (_audioApi == null)

@@ -30,6 +30,8 @@ It supports two playback modes:
 - **Audio plugin mode**: Uses the Swiftly Audio plugin (MP3/WAV playback).
 - **Workshop Addons**: Relies on addon sound events (.vsndevts).
 
+For shared volume controls (`!volume` / `!vol`), install [Volume.API](https://github.com/a2Labs-cc/Volume.API) and its exported contract. This is separate from the optional Swiftly Audio playback plugin.
+
 ## Support
 
 Need help or have questions? Join our Discord server:
@@ -49,6 +51,11 @@ Need help or have questions? Join our Discord server:
     <a href="https://github.com/a2Labs-cc/SW2-QuakeSounds/releases/latest" target="_blank" rel="noopener noreferrer">Click Here</a>
   </li>
     <li>
+    <code>⚙️</code>
+    <strong>&nbsp;Download Volume.API for shared volume controls</strong> &rarr;
+    <a href="https://github.com/a2Labs-cc/Volume.API" target="_blank" rel="noopener noreferrer">Click Here</a>
+  </li>
+  <li>
     <code>⚙️</code>
     <strong>&nbsp;Download Latest Addons Manager</strong> &rarr;
     <a href="https://github.com/SwiftlyS2-Plugins/AddonsManager/releases/latest" target="_blank" rel="noopener noreferrer">Click Here</a>
@@ -77,7 +84,8 @@ Need help or have questions? Join our Discord server:
 .../game/csgo/addons/swiftlys2/plugins/QuakeSounds/
 ```
 3. Ensure the `resources/` folder (translations, gamedata) and your audio files are alongside the DLL or in the plugin data directory paths referenced in `config.jsonc`.
-4. Start/restart the server.
+4. Install [Volume.API](https://github.com/a2Labs-cc/Volume.API) for `!volume` / `!vol`, with its `resources/exports/Volume.Contract.dll`, and install the Cookies plugin to persist player settings. Keep the Volume.API plugin folder intact: SwiftlyS2 loads its shared contract from `resources/exports/`. The Swiftly Audio plugin is optional and affects playback mode, not volume settings.
+5. Start/restart the server.
 
 ## Audio Files
 
@@ -109,7 +117,7 @@ If you are using **Workshop Addons / sound events mode** (no Audio plugin), the 
 - `UseAudioPlugin`: Use the Swiftly Audio plugin if available; otherwise fall back to addon sounds mode (default: true)
 - `SoundEventFile`: (Addon sounds mode) `.vsndevts` file to precache (default: `your_sound_events/quakesounds.vsndevts`)
 - `PlayToAll`: Play sounds to all enabled players instead of only the killer (default: false)
-- `Volume`: Base volume (0-1) used when no per-player override exists (default: 1.0)
+- `Volume`: Fallback volume (0-1) if the shared Volume API is unavailable (default: 1.0)
 - `CountSelfKills` / `CountTeamKills`: Whether to include suicides/team-kills in streaks (default: false / false)
 - `ResetKillsOnDeath` / `ResetKillsOnRoundStart`: Reset counters after death or at round start (default: true / true)
 - `PrioritizeSpecialKills`: When true, special kills (taser/knife/headshot/noscope) take priority over streak sounds (default: false)
@@ -127,10 +135,9 @@ When using **Workshop Addons / sound events** mode, each `Sounds` entry should b
 
 ### Commands
 
-- `!volume <0-10>`: Set your personal QuakeSounds volume (falls back to `Volume` when unset).
 - `!quake`: Toggle QuakeSounds on or off for yourself.
 
-Per-player volume and enable/disable are persisted through the [Cookies](https://github.com/SwiftlyS2-Plugins/Cookies) plugin when it is installed. If the Cookies plugin is not loaded, settings fall back to in-memory storage and reset on plugin unload / server restart.
+The shared Volume plugin owns `!volume` and `!vol`: use either command without arguments to open the volume slider menu, `!volume <0-10>` for all sound features, or `!volume QuakeSounds <0-10>` for QuakeSounds only. Volume settings are persisted by the Volume plugin through Cookies; when the shared interface is unavailable but `Volume.Contract.dll` is loadable, QuakeSounds uses its configured `Volume` value. The contract DLL must still be deployed for QuakeSounds to start. The `!quake` enabled state continues to persist through the [Cookies](https://github.com/SwiftlyS2-Plugins/Cookies) plugin when available (otherwise it is kept in memory until plugin unload / server restart).
 
 ### CVars
 

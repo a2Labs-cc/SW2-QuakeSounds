@@ -11,15 +11,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Volume.Contract;
 
 namespace QuakeSounds;
 
-[PluginMetadata(Id = "QuakeSounds", Version = "1.2.5", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
+[PluginMetadata(Id = "QuakeSounds", Version = "1.2.6", Name = "QuakeSounds", Author = "aga", Description = "No description.")]
 public partial class QuakeSounds : BasePlugin {
   private ISoundService? _soundService;
   private GameStateService _gameStateService = null!;
   private readonly MessageService _messageService;
   private PlayerCookiesApiWrapper? _playerCookies;
+  private IPlayerVolumeAPI? _volumeApi;
   private QuakeSoundsConfig _config = new();
   private readonly HashSet<string> _missingSoundFilesLogged = new(StringComparer.OrdinalIgnoreCase);
   private IConVar<int>? _qsEnabled;
@@ -38,6 +40,25 @@ public partial class QuakeSounds : BasePlugin {
 
   public override void UseSharedInterface(IInterfaceManager interfaceManager)
   {
+    _volumeApi = null;
+    try
+    {
+      if (interfaceManager.HasSharedInterface("Volume.Player.v1"))
+      {
+        _volumeApi = interfaceManager.GetSharedInterface<IPlayerVolumeAPI>("Volume.Player.v1");
+        RegisterVolumeFeature();
+      }
+      else
+      {
+        Core.Logger.LogWarning("[QuakeSounds] Volume API not found; using configured volume.");
+      }
+    }
+    catch (Exception ex)
+    {
+      Core.Logger.LogError(ex, "[QuakeSounds] Failed to initialize Volume API; using configured volume.");
+      _volumeApi = null;
+    }
+
     if (_config.UseAudioPlugin && interfaceManager.HasSharedInterface("audio"))
     {
       try
@@ -85,7 +106,22 @@ public partial class QuakeSounds : BasePlugin {
       _soundService = new AddonSoundService(Core);
     }
 
+    _soundService?.SetVolumeApi(_volumeApi);
     InitializeCookiesApi(interfaceManager);
+  }
+
+  private void RegisterVolumeFeature()
+  {
+    if (_volumeApi == null) return;
+    try
+    {
+      _volumeApi.RegisterFeature("QuakeSounds", "Quake Sounds");
+    }
+    catch (Exception ex)
+    {
+      Core.Logger.LogError(ex, "[QuakeSounds] Failed to register volume feature.");
+      _volumeApi = null;
+    }
   }
 
   private void InitializeCookiesApi(IInterfaceManager interfaceManager)
@@ -173,13 +209,25 @@ public partial class QuakeSounds : BasePlugin {
       }
     );
 
-    _registeredCommands.Add("volume");
     _registeredCommands.Add("quake");
     Core.Logger.LogInformation("[QuakeSounds] Plugin loaded successfully.");
   }
 
   public override void Unload()
   {
+    if (_volumeApi != null)
+    {
+      try
+      {
+        _volumeApi.UnregisterFeature("QuakeSounds");
+      }
+      catch (Exception ex)
+      {
+        Core.Logger.LogError(ex, "[QuakeSounds] Failed to unregister volume feature.");
+      }
+      _volumeApi = null;
+    }
+
     if (!_config.UseAudioPlugin && !string.IsNullOrEmpty(_config.SoundEventFile))
     {
       Core.Event.OnPrecacheResource -= Event_OnPrecacheResource;

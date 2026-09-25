@@ -41,8 +41,7 @@ public partial class QuakeSounds
         anyPlayer,
         soundKey,
         _config,
-        id => _gameStateService.IsPlayerEnabled(id),
-        id => _gameStateService.GetPlayerVolume(id)
+        id => _gameStateService.IsPlayerEnabled(id)
       );
     }
     finally

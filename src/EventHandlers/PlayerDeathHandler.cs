@@ -233,8 +233,7 @@ public partial class QuakeSounds
           attacker,
           soundKey,
           _config,
-          id => _gameStateService.IsPlayerEnabled(id),
-          id => _gameStateService.GetPlayerVolume(id)
+          id => _gameStateService.IsPlayerEnabled(id)
         ) ?? false;
 
         if (_config.Sounds.ContainsKey(soundKey) && (_config.EnableChatMessage || _config.EnableCenterMessage))

@@ -4,24 +4,42 @@ using SwiftlyS2.Shared.Players;
 using SwiftlyS2.Shared.Sounds;
 using System;
 using System.Linq;
+using Volume.Contract;
 
 namespace QuakeSounds.Services;
 
 public class AddonSoundService : ISoundService
 {
     private readonly ISwiftlyCore _core;
+    private IPlayerVolumeAPI? _volumeApi;
 
     public AddonSoundService(ISwiftlyCore core)
     {
         _core = core;
     }
 
+    public void SetVolumeApi(IPlayerVolumeAPI? volumeApi) => _volumeApi = volumeApi;
+
     public void ClearCache()
     {
     }
 
-    public bool TryPlay(IPlayer attacker, string soundKey, QuakeSounds.QuakeSoundsConfig config, Func<ulong, bool> isPlayerEnabled, Func<ulong, float> getPlayerVolume)
+    public bool TryPlay(IPlayer attacker, string soundKey, QuakeSounds.QuakeSoundsConfig config, Func<ulong, bool> isPlayerEnabled)
     {
+        float GetEffectiveVolume(ulong steamId)
+        {
+            if (_volumeApi == null) return Math.Clamp(config.Volume, 0f, 1f);
+            try
+            {
+                return Math.Clamp(_volumeApi.GetEffectiveVolume((long)steamId, "QuakeSounds"), 0f, 1f);
+            }
+            catch (Exception ex)
+            {
+                _core.Logger.LogError(ex, "[QuakeSounds] Volume API failed for {SteamId}", steamId);
+                return Math.Clamp(config.Volume, 0f, 1f);
+            }
+        }
+
         if (!config.Sounds.TryGetValue(soundKey, out var soundPath) || string.IsNullOrWhiteSpace(soundPath))
         {
             if (config.Debug)
@@ -41,11 +59,7 @@ public class AddonSoundService : ISoundService
                     continue;
                 }
 
-                var volume = config.Volume;
-                var overrideVolume = getPlayerVolume(player.SteamID);
-                if (overrideVolume >= 0) volume = overrideVolume;
-
-                PlaySoundToPlayer(player, soundPath, Math.Clamp(volume, 0f, 1f));
+                PlaySoundToPlayer(player, soundPath, GetEffectiveVolume(player.SteamID));
                 anyPlayed = true;
             }
             return anyPlayed;
@@ -56,11 +70,7 @@ public class AddonSoundService : ISoundService
             return false;
         }
 
-        var attackerVolume = config.Volume;
-        var attackerOverrideVolume = getPlayerVolume(attacker.SteamID);
-        if (attackerOverrideVolume >= 0) attackerVolume = attackerOverrideVolume;
-
-        PlaySoundToPlayer(attacker, soundPath, Math.Clamp(attackerVolume, 0f, 1f));
+        PlaySoundToPlayer(attacker, soundPath, GetEffectiveVolume(attacker.SteamID));
         return true;
     }
 

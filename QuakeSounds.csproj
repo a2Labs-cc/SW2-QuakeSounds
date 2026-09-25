@@ -26,6 +26,10 @@
       <HintPath>lib\Cookies.Contract.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Volume.Contract">
+      <HintPath>lib\Volume.Contract.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
